@@ -9,7 +9,7 @@ extension MIOServerKit
     }
 }
 
-public class MSKAWS_S3()
+public class MSKAWS_S3
 {
     
 }
