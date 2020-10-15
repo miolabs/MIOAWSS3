@@ -6,6 +6,23 @@
 //
 
 import Foundation
+import MIOCore
+
+
+public enum AWSError: Error
+{
+    case error(_ code: String, _ message: String, functionName: String = #function)
+}
+
+
+extension AWSError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case let .error(code, msg, functionName):
+            return "[DLDBError] \(functionName) \(code) - \"\(msg)\"."
+        }
+    }
+}
 
 public class S3
 {
@@ -31,6 +48,19 @@ public class S3
         
         let response = try req.exec( )
         
-        return response.2
+        // .2 is Error
+        if response.2 != nil { return response.2 }
+        
+        // In case of no error, response.0 may contain an "Error"
+        if response.0 != nil && response.0?.count ?? 0 > 0 {
+            let xmlDict = try XMLSerialization.xmlObject(with: response.0!, options: []) as! [String:Any]
+            
+            if xmlDict[ "__XML_TAG_NAME__" ] as? String == "Error" {
+                return AWSError.error( xmlDict[ "Code" ] as? String ?? "Unkown CODE"
+                                     , xmlDict[ "Message" ] as? String ?? "Missing Message" )
+            }
+        }
+
+        return nil
     }
 }
