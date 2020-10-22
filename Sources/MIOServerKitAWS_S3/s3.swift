@@ -44,6 +44,8 @@ public class S3
           , req = Request( "PUT", url, content )
           , signature = S3SignatureV4( region )
         
+        req.header("Host", "duallink-images.s3.eu-west-1.amazonaws.com" )
+        
         signature.signRequest( req, credentials )
         
         let response = try req.exec( )

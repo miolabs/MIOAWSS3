@@ -17,11 +17,10 @@ public class Request {
     var _method: String
     var _headers: [String:String] = [:]
     
-    init ( _ method: String, _ url: String, _ content: Data ) {
+    public init ( _ method: String, _ url: String, _ content: Data ) {
         self._method = method
         self.url     = URL( string: url )!
         self._body   = content
-        _headers[ "Host" ] = "duallink-images.s3.eu-west-1.amazonaws.com"
     }
     
     public func removeHeaders ( _ headers: [ String ] ) -> Request {
@@ -56,7 +55,7 @@ public class Request {
     }
     
     
-    public func header ( _ key: String, _ value: String ) -> Request {
+    @discardableResult public func header ( _ key: String, _ value: String ) -> Request {
         _headers[ key ] = value
         return self
     }
