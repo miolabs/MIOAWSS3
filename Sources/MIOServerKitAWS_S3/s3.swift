@@ -39,18 +39,18 @@ public class S3
     }
     
     
-    public func putFile ( _ bucket: String, _ path: String, _ content: Data ) throws -> Error? {
-        return try exec_request( Request( "PUT", api_url( path ), content ), bucket )
+    public func putFile ( _ host: String, _ path: String, _ content: Data ) throws -> Error? {
+        return try exec_request( Request( "PUT", api_url( path ), content ), host )
     }
     
     func api_url ( _ path: String ) -> String {
         return "https://" + apn + "-" + accountID + ".s3-accesspoint." + region + ".amazonaws.com" + path
     }
     
-    func exec_request ( _ req: Request, _ bucket: String ) throws -> Error? {
+    func exec_request ( _ req: Request, _ host: String ) throws -> Error? {
         let signature = S3SignatureV4( region )
-  
-        req.header("Host", bucket )
+        
+        req.header("Host", host )
   
         signature.signRequest( req, credentials )
   
