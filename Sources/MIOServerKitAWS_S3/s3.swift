@@ -39,17 +39,25 @@ public class S3
     }
     
     
-    public func putFile ( _ path: String, _ content: Data ) throws -> Error? {
-        let url = "https://" + apn + "-" + accountID + ".s3-accesspoint." + region + ".amazonaws.com" + path
-          , req = Request( "PUT", url, content )
-          , signature = S3SignatureV4( region )
-        
-        req.header("Host", "duallink-images.s3.eu-west-1.amazonaws.com" )
-        
+    public func putFile ( _ bucket: String, _ path: String, _ content: Data ) throws -> Error? {
+        return try exec_request( Request( "PUT", api_url( path ), content ), bucket )
+    }
+    
+    func api_url ( _ path: String ) -> String {
+        return "https://" + apn + "-" + accountID + ".s3-accesspoint." + region + ".amazonaws.com" + path
+    }
+    
+    func exec_request ( _ req: Request, _ bucket: String ) throws -> Error? {
+        let signature = S3SignatureV4( region )
+  
+        req.header("Host", bucket )
+  
         signature.signRequest( req, credentials )
-        
-        let response = try req.exec( )
-        
+  
+        return try dispatch_response( try req.exec( ) )
+    }
+    
+    func dispatch_response ( _ response: (Data?,URLResponse?,Error?) ) throws -> Error? {
         // .2 is Error
         if response.2 != nil { return response.2 }
         
@@ -64,5 +72,9 @@ public class S3
         }
 
         return nil
+    }
+
+    public func deleteFile ( _ bucket: String, _ path: String ) throws -> Error? {
+        return try exec_request( Request( "DELETE", api_url( path ) ), bucket )
     }
 }

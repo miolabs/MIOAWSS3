@@ -11,13 +11,28 @@ import Foundation
 import FoundationNetworking
 #endif
 
+public enum RequestError: Error
+{
+    case bodyIsNil
+}
+
+extension RequestError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+            case .bodyIsNil:
+                return "[Request Error] Body cannot be nil"
+        }
+    }
+}
+
+
 public class Request {
     var url: URL
-    var _body: Data
+    var _body: Data?
     var _method: String
     var _headers: [String:String] = [:]
     
-    public init ( _ method: String, _ url: String, _ content: Data ) {
+    public init ( _ method: String, _ url: String, _ content: Data? = nil ) {
         self._method = method
         self.url     = URL( string: url )!
         self._body   = content
@@ -46,7 +61,7 @@ public class Request {
         return [:]
     }
     
-    public func body ( ) -> Data {
+    public func body ( ) -> Data? {
         return _body
     }
     
@@ -89,7 +104,11 @@ public class Request {
         let session = URLSession.init(configuration: config)
         
         if ( _method == "PUT" || _method == "POST" ) {
-            let task = session.uploadTask(with: request, from: _body) { data, response, error in
+            if _body == nil {
+                throw RequestError.bodyIsNil
+            }
+            
+            let task = session.uploadTask(with: request, from: _body!) { data, response, error in
                          ret_data     = data
                          ret_response = response
                          ret_error    = error

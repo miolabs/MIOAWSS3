@@ -261,7 +261,7 @@ public class SignatureV4
             return header_sha
         }
 
-        return sha256_hash( request.body( ) )
+        return sha256_hash( request.body( ) ?? Data( ) )
     }
 
 //    protected func getPresignedPayload(RequestInterface request)
