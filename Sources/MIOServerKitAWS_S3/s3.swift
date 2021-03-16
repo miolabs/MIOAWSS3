@@ -8,6 +8,9 @@
 import Foundation
 import MIOCore
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public enum AWSError: Error
 {
