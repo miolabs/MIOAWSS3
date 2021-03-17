@@ -22,14 +22,13 @@ let package = Package(
         .package(url: "https://github.com/miolabs/MIOCore.git", .branch("master")),
         .package(url: "https://github.com/miolabs/MIOServerKit.git", .branch("master")),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "1.0.0"),
-        //.package(url: "https://github.com/miolabs/MIOCore.git", .branch("master")),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
         // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
             name: "MIOServerKitAWS_S3",
-            dependencies: ["MIOServerKit", "Crypto"]),
+            dependencies: ["MIOServerKit", "Crypto", "MIOCore"]),
         .testTarget(
             name: "MIOServerKitAWS_S3Tests",
             dependencies: ["MIOServerKitAWS_S3"]),
