@@ -6,7 +6,7 @@ final class MIOServerKitAWS_S3Tests: XCTestCase {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
         // results.
-        XCTAssertEqual(MIOServerKitAWS_S3().text, "Hello, World!")
+        //aXCTAssertEqual(MIOServerKitAWS_S3().text, "Hello, World!")
     }
 
     static var allTests = [
