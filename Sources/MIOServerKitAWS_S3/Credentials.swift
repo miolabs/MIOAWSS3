@@ -17,7 +17,7 @@ public class Credentials
     private var key    : String
     private var secret : String
     private var token  : String?
-    private var expires: Int?
+    private var expires: Int32?
 
     /**
      * Constructs a new BasicAWSCredentials object, with the specified AWS
@@ -28,7 +28,7 @@ public class Credentials
      * @param string token   Security token to use
      * @param int    expires UNIX timestamp for when credentials expire
      */
-    public init ( key: String, secret: String, token: String? = nil, expires: Int? = nil )
+    public init ( key: String, secret: String, token: String? = nil, expires: Int32? = nil )
     {
         self.key     = key.trimmingCharacters(in: .whitespacesAndNewlines)
         self.secret  = secret.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -49,7 +49,7 @@ public class Credentials
     public func getAccessKeyId   ( ) -> String  { return key     }
     public func getSecretKey     ( ) -> String  { return secret  }
     public func getSecurityToken ( ) -> String? { return token   }
-    public func getExpiration    ( ) -> Int?    { return expires }
+    public func getExpiration    ( ) -> Int32?  { return expires }
 
 //    public func isExpired ( ) -> Bool {
 //        return expires != nil && time() >= expires!
