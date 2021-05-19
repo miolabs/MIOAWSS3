@@ -27,15 +27,18 @@ extension RequestError: LocalizedError {
 
 
 public class Request {
-    var url: URL
+    var _url: String
     var _body: Data?
     var _method: String
     var _headers: [String:String] = [:]
+
+    var _get_url: URLComponents? = nil
     
     public init ( _ method: String, _ url: String, _ content: Data? = nil ) {
         self._method = method
-        self.url     = URL( string: url )!
+        self._url    = url
         self._body   = content
+        self._get_url = method == "GET" ? URLComponents(string: url)! : nil
     }
     
     public func removeHeaders ( _ headers: [ String ] ) -> Request {
@@ -51,14 +54,25 @@ public class Request {
         return _method
     }
     
+    public var url: URL {
+        get {
+            return _method == "GET" ?
+                   _get_url!.url!
+                 : URL( string: _url )!
+        }
+    }
     
     public func path ( ) -> String {
         return url.path
     }
     
     
-    public func query ( ) -> [String:String] {
-        return [:]
+    public func query ( ) -> [String:String] { return [:] }
+    
+    public func param ( _ key: String, _ value: String? ) {
+        if _get_url!.queryItems == nil { _get_url!.queryItems = [] }
+            
+        _get_url!.queryItems!.append( URLQueryItem(name: key, value: value) )
     }
     
     public func body ( ) -> Data? {
@@ -101,6 +115,8 @@ public class Request {
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.urlCache = nil
 
+        
+        
         let session = URLSession.init(configuration: config)
         
         if ( _method == "PUT" || _method == "POST" ) {
