@@ -43,6 +43,7 @@ public class S3
     
     
     public func putFile ( _ host: String, _ path: String, _ content: Data ) throws -> Error? {
+        print("S3: \(host) \(path): \(content)")
         return try exec_request( Request( "PUT", api_url( path ), content ), host )
     }
     
@@ -60,14 +61,14 @@ public class S3
         return try dispatch_response( try req.exec( ) )
     }
     
-    func dispatch_response ( _ response: (Data?,URLResponse?,Error?) ) throws -> Error? {
+    func dispatch_response ( _ response: (Data?, URLResponse?, Error?) ) throws -> Error? {
         // .2 is Error
         if response.2 != nil { return response.2 }
         
         // In case of no error, response.0 may contain an "Error"
         if response.0 != nil && response.0?.count ?? 0 > 0 {
             let xmlDict = try XMLSerialization.xmlObject(with: response.0!, options: []) as! [String:Any]
-            
+            print("S3: Response \(xmlDict)")
             if xmlDict[ "__XML_TAG_NAME__" ] as? String == "Error" {
                 return AWSError.error( xmlDict[ "Code" ] as? String ?? "Unkown CODE"
                                      , xmlDict[ "Message" ] as? String ?? "Missing Message" )
