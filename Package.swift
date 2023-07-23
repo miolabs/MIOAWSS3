@@ -8,7 +8,7 @@ import PackageDescription
 let package = Package(
     name: "MIOServerKitAWS_S3",
     platforms: [
-       .macOS(.v10_15)
+        .macOS(.v10_15),
     ],
     products: [
         // Products define the executables and libraries produced by a package, and make them visible to other packages.
@@ -19,7 +19,7 @@ let package = Package(
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
-        .package(url: "https://github.com/miolabs/MIOCore.git", .branch("master")),
+        .package(url: "https://github.com/miolabs/MIOCore.git", .branch("master") ),
         .package(url: "https://github.com/miolabs/MIOServerKit.git", .branch("master")),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "1.0.0"),
     ],

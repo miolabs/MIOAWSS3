@@ -82,15 +82,16 @@ public class SignatureV4
     }
 
 
-    public func signRequest ( _ request: Request, _ credentials: Credentials ) {
+    public func signRequest ( _ request: inout URLRequest, _ credentials: Credentials ) {
         let ldt = gmdate() // 20200905T085054Z
           , sdt = String( ldt[ ldt.startIndex ... ldt.index( ldt.startIndex, offsetBy: 7 ) ] ) // 20200905
 
-        _ = request.removeHeaders( [ "x-amz-date", "Date", "Authorization" ] )
-                   .header( "x-amz-date", ldt )
+        request.setValue(ldt, forHTTPHeaderField: "x-amz-date" )
+        request.setValue( nil, forHTTPHeaderField: "Date" )
+        request.setValue( nil, forHTTPHeaderField: "Authorization" )
 
         if let token = credentials.getSecurityToken() {
-            _ = request.header( "x-amz-security-token", token )
+            request.setValue( token, forHTTPHeaderField: "x-amz-security-token" )
         }
         
         let cs         = createScope( sdt, region, service )
@@ -101,13 +102,14 @@ public class SignatureV4
           , signature  = sha256_hmac( toSign, key: signingKey ).map{ String(format: "%02x", $0) }.joined()
 
         if payload == AWS_SIGNATURE_TYPE.UNSIGNED_PAYLOAD.rawValue {
-            _ = request.header( AMZ_CONTENT_SHA256_HEADER, payload )
+            request.setValue( payload, forHTTPHeaderField: AMZ_CONTENT_SHA256_HEADER )
         }
 
-        _ = request.header( "Authorization"
-                          , "AWS4-HMAC-SHA256 "
-                            + "Credential=\(credentials.getAccessKeyId())/\(cs), "
-                            + "SignedHeaders=\(context.headers), Signature=\(signature)" )
+        let auth = "AWS4-HMAC-SHA256 "
+                 + "Credential=\(credentials.getAccessKeyId())/\(cs), "
+                 + "SignedHeaders=\(context.headers), Signature=\(signature)"
+        
+        request.setValue( auth, forHTTPHeaderField: "Authorization" )
     }
 
     /**
@@ -115,21 +117,25 @@ public class SignatureV4
      * @param string payload Hash of the request payload
      * @return array Returns an array of context information
      */
-    private func createContext ( _ request: Request, _ payload: String ) -> SigContext
+    private func createContext ( _ request: URLRequest, _ payload: String ) -> SigContext
     {
         let blacklist           = SignatureV4.getHeaderBlacklist()
-        let allowed_headers     = request.headers( )
+        let allowed_headers     = ( request.allHTTPHeaderFields ?? [:] )
                                          .filter{ (h,v) in !blacklist.contains( h ) }
           , sortedKeys          = Array(allowed_headers.keys).sorted(by: <)
           , canonHeaders        = sortedKeys.map{ h in "\(h.lowercased()):\(allowed_headers[ h ]!)" }.joined( separator: "\n" )
           , signedHeadersString = sortedKeys.map{ $0.lowercased() }.joined( separator: ";" )
         
-        let canon =   request.method( ) + "\n"
-                    + createCanonicalizedPath( request.path( ) ) + "\n"
-                    + getCanonicalizedQuery( request.query( ) ) + "\n"
-                    + canonHeaders + "\n\n"
-                    + signedHeadersString + "\n"
-                    + payload
+        
+        
+        var canon = ""
+        canon += request.httpMethod! + "\n"
+        canon += createCanonicalizedPath( request.url?.path ?? "" ) + "\n"
+//      canon += + getCanonicalizedQuery( request.url.query ) + "\n"
+        canon += ( request.url?.query ?? "" ) + "\n"
+        canon += canonHeaders + "\n\n"
+        canon += signedHeadersString + "\n"
+        canon += payload
 
         return SigContext( creq: canon, headers: signedHeadersString )
     }
@@ -249,19 +255,19 @@ public class SignatureV4
 //    }
 
 
-    public func getPayload ( _ request: Request ) -> String
+    public func getPayload ( _ request: URLRequest ) -> String
     {
-        if isUnsigned && request.isHTTPS( ) {
+        if isUnsigned && request.url!.scheme!.lowercased() == "https" {
             return AWS_SIGNATURE_TYPE.UNSIGNED_PAYLOAD.rawValue
         }
         
         // Calculate the request signature payload
-        if let header_sha = request.header( AMZ_CONTENT_SHA256_HEADER ) {
+        if let header_sha = request.value(forHTTPHeaderField: AMZ_CONTENT_SHA256_HEADER ) {
             // Handle streaming operations (e.g. Glacier.UploadArchive)
             return header_sha
         }
 
-        return sha256_hash( request.body( ) ?? Data( ) )
+        return sha256_hash( request.httpBody ?? Data( ) )
     }
 
 //    protected func getPresignedPayload(RequestInterface request)

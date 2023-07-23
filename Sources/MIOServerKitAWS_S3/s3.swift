@@ -44,41 +44,39 @@ public class S3
     
     public func putFile ( _ host: String, _ path: String, _ content: Data ) throws -> Error? {
         print("S3: \(host) \(path): \(content)")
-        return try exec_request( Request( "PUT", api_url( path ), content ), host )
+        var req = URLRequest(method: "PUT", urlString: api_url( path ),body: content )
+        return try exec_request( &req, host )
     }
     
     func api_url ( _ path: String ) -> String {
         return "https://" + apn + "-" + accountID + ".s3-accesspoint." + region + ".amazonaws.com" + path
     }
     
-    func exec_request ( _ req: Request, _ host: String ) throws -> Error? {
+    func exec_request ( _ req: inout URLRequest, _ host: String ) throws -> Error? {
         let signature = S3SignatureV4( region )
         
-        req.header("Host", host )
+        req.setValue( host, forHTTPHeaderField: "Host")
   
-        signature.signRequest( req, credentials )
+        signature.signRequest( &req, credentials )
   
-        return try dispatch_response( try req.exec( ) )
+        return try dispatch_response( try MIOCoreURLDataRequest_sync( req ) )
     }
     
-    func dispatch_response ( _ response: (Data?, URLResponse?, Error?) ) throws -> Error? {
-        // .2 is Error
-        if response.2 != nil { return response.2 }
-        
-        // In case of no error, response.0 may contain an "Error"
-        if response.0 != nil && response.0?.count ?? 0 > 0 {
-            let xmlDict = try XMLSerialization.xmlObject(with: response.0!, options: []) as! [String:Any]
-            print("S3: Response \(xmlDict)")
-            if xmlDict[ "__XML_TAG_NAME__" ] as? String == "Error" {
-                return AWSError.error( xmlDict[ "Code" ] as? String ?? "Unkown CODE"
-                                     , xmlDict[ "Message" ] as? String ?? "Missing Message" )
-            }
+    func dispatch_response ( _ response: Data? ) throws -> Error? {
+        if response == nil || response!.isEmpty { return nil }
+
+        let xmlDict = try XMLSerialization.xmlObject(with: response!, options: []) as! [String:Any]
+        print("S3: Response \(xmlDict)")
+        if xmlDict[ "__XML_TAG_NAME__" ] as? String == "Error" {
+            return AWSError.error( xmlDict[ "Code" ] as? String ?? "Unkown CODE"
+                                 , xmlDict[ "Message" ] as? String ?? "Missing Message" )
         }
 
         return nil
     }
 
     public func deleteFile ( _ bucket: String, _ path: String ) throws -> Error? {
-        return try exec_request( Request( "DELETE", api_url( path ) ), bucket )
+        var req = URLRequest( method:"DELETE", urlString: api_url( path ) )
+        return try exec_request( &req, bucket )
     }
 }

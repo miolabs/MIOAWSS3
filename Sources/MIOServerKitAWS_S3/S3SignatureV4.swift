@@ -14,13 +14,13 @@ class S3SignatureV4: SignatureV4
         super.init( service: "s3", region: region )
     }
     
-    public override func signRequest ( _ request: Request, _ credentials: Credentials ) {
-        _ = request.header( "x-amz-acl", "public-read" )
+    public override func signRequest ( _ request: inout URLRequest, _ credentials: Credentials ) {
+        request.setValue( "public-read", forHTTPHeaderField: "x-amz-acl")
         
-        if request.header( "x-amz-content-sha256" ) == nil {
-            _ = request.header( AMZ_CONTENT_SHA256_HEADER, getPayload( request ) )
+        if request.value( forHTTPHeaderField: "x-amz-content-sha256" ) == nil {
+            request.setValue( getPayload( request ), forHTTPHeaderField: AMZ_CONTENT_SHA256_HEADER )
         }
 
-        super.signRequest( request, credentials )
+        super.signRequest( &request, credentials )
     }
 }
