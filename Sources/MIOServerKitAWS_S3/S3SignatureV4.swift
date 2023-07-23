@@ -7,6 +7,9 @@
 
 import Foundation
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 class S3SignatureV4: SignatureV4
 {
