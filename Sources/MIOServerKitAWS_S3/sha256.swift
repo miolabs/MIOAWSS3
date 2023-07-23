@@ -1,5 +1,5 @@
 //
-//  File.swift
+//  sha256.swift
 //  
 //
 //  Created by David Trallero on 03/09/2020.
