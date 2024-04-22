@@ -20,7 +20,6 @@ let package = Package(
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
         .package(url: "https://github.com/miolabs/MIOCore.git", .branch("master") ),
-        .package(url: "https://github.com/miolabs/MIOServerKit.git", .branch("master")),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "1.0.0"),
     ],
     targets: [
@@ -28,7 +27,7 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
             name: "MIOServerKitAWS_S3",
-            dependencies: ["MIOServerKit", "Crypto", "MIOCore"]),
+            dependencies: ["Crypto", "MIOCore"]),
         .testTarget(
             name: "MIOServerKitAWS_S3Tests",
             dependencies: ["MIOServerKitAWS_S3"]),
