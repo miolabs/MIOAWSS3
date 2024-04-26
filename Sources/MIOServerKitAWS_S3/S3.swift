@@ -130,7 +130,6 @@ extension S3 : URLSessionTaskDelegate
         S3.progress_blocks[ req.url!.absoluteString ] = progress
         
         let config = URLSessionConfiguration.ephemeral
-
         let session = URLSession( configuration: config, delegate: self, delegateQueue: .main )
         
         let task = session.dataTask( with: req ) { data, response, error in
