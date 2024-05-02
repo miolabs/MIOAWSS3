@@ -172,10 +172,10 @@ extension S3 : URLSessionTaskDelegate
                         print ("S3::getFile 07")
                     }
                 }
-                let fakeUrlForFileName = URL(filePath: remotePath)
-                savedURL = documentUrl.appendingPathComponent(fakeUrlForFileName.lastPathComponent)
-                print("S3 download finished. Moving from \(fileURL.absoluteString) to \(savedURL.absoluteString)")
-                try FileManager.default.moveItem(at: fileURL, to: savedURL)
+//                let fakeUrlForFileName = URL(filePath: remotePath)
+//                savedURL = documentUrl.appendingPathComponent(fakeUrlForFileName.lastPathComponent)
+//                print("S3 download finished. Moving from \(fileURL.absoluteString) to \(savedURL.absoluteString)")
+//                try FileManager.default.moveItem(at: fileURL, to: savedURL)
 
             } catch {
                 print ("S3::getFile exception: \(error)")
@@ -183,7 +183,7 @@ extension S3 : URLSessionTaskDelegate
                 S3.progress_blocks.removeValue( forKey: req.url!.absoluteString )
                 return
             }
-            completion( savedURL, nil)
+//            completion( savedURL, nil)
             S3.progress_blocks.removeValue( forKey: req.url!.absoluteString )
         }
         downloadTask.resume()
