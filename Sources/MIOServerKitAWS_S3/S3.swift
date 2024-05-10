@@ -125,7 +125,7 @@ extension S3 : URLSessionTaskDelegate
     //  Probado con:
     //  searchPath = .documentDirectory y localSubfolder ="folder"  -> deja el fichero en Documents/folder con el nombre que tuviera en remoto
     //  searchPath = .itemReplacementDirectory y localSubfolder = nil  -> No va en VisionOS
-    public func getFile ( _ host: String, _ remotePath: String, _ searchPath: FileManager.SearchPathDirectory, _ localSubfolder : String?,  progress: S3ProgressCallback?, completion: @escaping S3DownloadCompletionCallback ) {
+    public func getFile ( _ host: String, _ remotePath: String, _ saveFileURL: URL,  progress: S3ProgressCallback?, completion: @escaping S3DownloadCompletionCallback ) {
         var req = fileRequest( .get, host, remotePath )
         s3_exec_request( &req, host )
         
@@ -136,13 +136,14 @@ extension S3 : URLSessionTaskDelegate
         let session = URLSession( configuration: config, delegate: self, delegateQueue: .main )
         
         let downloadTask = session.downloadTask( with: req ) { urlOrNil, responseOrNil, errorOrNil in
-            var savedURL : URL
+            
             if let error = errorOrNil {
                 print (" S3::getFile error: \(error)")
                 completion( nil, error)
                 S3.progress_blocks.removeValue( forKey: req.url!.absoluteString )
                 return
             }
+            
             guard let responseHttp = responseOrNil as? HTTPURLResponse,
                 (200...299).contains(responseHttp.statusCode) else {
                 print("S3::getFile error responseHttp null or http error code received")
@@ -162,28 +163,21 @@ extension S3 : URLSessionTaskDelegate
                 S3.progress_blocks.removeValue( forKey: req.url!.absoluteString )
                 return
             }
-            do { // el fichero se ha descargado a un temporal, hay que moverlo ahora o perderlo para siempre
-                let fm = FileManager.default
-                var documentUrl = try fm.url(for: searchPath, in: .userDomainMask, appropriateFor: nil, create: false)
-                if localSubfolder != nil {
-                    documentUrl = documentUrl.appendingPathComponent(localSubfolder!)
-                    if !fm.fileExists(atPath: documentUrl.path) {
-                        try fm.createDirectory(at: documentUrl, withIntermediateDirectories: true, attributes: nil)
-                        print ("S3::getFile 07")
-                    }
-                }
-//                let fakeUrlForFileName = URL(filePath: remotePath)
-//                savedURL = documentUrl.appendingPathComponent(fakeUrlForFileName.lastPathComponent)
-//                print("S3 download finished. Moving from \(fileURL.absoluteString) to \(savedURL.absoluteString)")
-//                try FileManager.default.moveItem(at: fileURL, to: savedURL)
-
-            } catch {
+            
+            do 
+            {
+                // el fichero se ha descargado a un temporal, hay que moverlo ahora o perderlo para siempre
+                print("S3 download finished. Moving from \(fileURL.relativePath) to \(saveFileURL.relativePath)")
+                try? FileManager.default.moveItem( at: fileURL, to: saveFileURL )
+            }
+            catch {
                 print ("S3::getFile exception: \(error)")
                 completion( nil, error)
                 S3.progress_blocks.removeValue( forKey: req.url!.absoluteString )
                 return
             }
-//            completion( savedURL, nil)
+            
+            completion( saveFileURL, nil )
             S3.progress_blocks.removeValue( forKey: req.url!.absoluteString )
         }
         downloadTask.resume()
