@@ -61,7 +61,9 @@ public final class S3 : NSObject
     public func getFile ( _ host: String, _ path: String ) throws -> Data?
     {
         var req = fileRequest( .get, host, path )
-        return try exec_request( &req, host )
+        s3_exec_request( &req, host )
+        return try MIOCoreURLDataRequest_sync( req )
+        //return try exec_request( &req, host )
     }
     
     public func putFile ( _ host: String, _ path: String, _ content: Data ) throws
