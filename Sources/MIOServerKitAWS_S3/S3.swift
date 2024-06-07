@@ -83,7 +83,9 @@ public final class S3 : NSObject
 extension S3
 {
     func api_url ( _ path: String ) -> String {
-        return "https://" + apn + "-" + accountID + ".s3-accesspoint." + region + ".amazonaws.com" + path
+        let url = "https://" + apn + "-" + accountID + ".s3-accesspoint." + region + ".amazonaws.com" + path
+        print( "S3 URL: \(url)")
+        return url
     }
     
     func s3_exec_request( _ req: inout URLRequest, _ host: String ) {
