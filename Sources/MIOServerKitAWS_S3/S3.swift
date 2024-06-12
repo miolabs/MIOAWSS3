@@ -129,6 +129,7 @@ extension S3
         if response == nil || response!.isEmpty { return nil }
 
         guard let xmlDict = try XMLSerialization.xmlObject( with: response!, options: [] ) as? [String:Any] else {
+            print("S3: Response data error: \(String(describing: ( response != nil ? String(data:response!, encoding: .utf8) : "null") ) )" )
             throw AWSError.error( "Unkown CODE", "Missing Message")
         }
         print( "S3: Response \(xmlDict)" )
