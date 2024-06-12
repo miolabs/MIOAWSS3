@@ -11,19 +11,24 @@ import Foundation
 import FoundationNetworking
 #endif
 
+public enum S3SignatureV4ACLType : String
+{
+    case publicRead = "public-read"
+}
+
 class S3SignatureV4: SignatureV4
 {
-    public init ( _ region: String ) {
-        super.init( service: "s3", region: region )
+    public init ( _ region: String, isUnsigned:Bool = false ) {
+        super.init( service: "s3", region: region, isUnsigned: isUnsigned )
     }
     
-    public override func signRequest ( _ request: inout URLRequest, _ credentials: Credentials ) {
-        request.setValue( "public-read", forHTTPHeaderField: "x-amz-acl")
+    public func signRequest ( _ request: inout URLRequest, _ credentials: Credentials, body:Data?, acl: S3SignatureV4ACLType ) {
+        request.setValue( acl.rawValue, forHTTPHeaderField: "x-amz-acl")
         
-        if request.value( forHTTPHeaderField: "x-amz-content-sha256" ) == nil {
-            request.setValue( getPayload( request ), forHTTPHeaderField: AMZ_CONTENT_SHA256_HEADER )
-        }
+//        if request.value( forHTTPHeaderField: "x-amz-content-sha256" ) == nil {
+//            request.setValue( getPayload( request ), forHTTPHeaderField: AMZ_CONTENT_SHA256_HEADER )
+//        }
 
-        super.signRequest( &request, credentials )
+        super.signRequest( &request, credentials, body: body )
     }
 }

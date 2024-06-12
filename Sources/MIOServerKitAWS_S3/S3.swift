@@ -50,10 +50,10 @@ public final class S3 : NSObject
         case delete = "DELETE"
     }
     
-    func fileRequest( _ type:FileRequestType, _ host: String, _ path: String ) -> URLRequest
+    func fileRequest( _ type:FileRequestType, _ host: String, _ path: String, mimeType:String? = nil ) -> URLRequest
     {
         print("S3 \(type.rawValue): \(host) \(path)")
-        return URLRequest(method: type.rawValue, urlString: api_url( path ) )
+        return URLRequest(method: type.rawValue, urlString: api_url( path ), mimeType: mimeType )
     }
     
     // MARK: - Sync methods
@@ -61,22 +61,42 @@ public final class S3 : NSObject
     public func getFile ( _ host: String, _ path: String ) throws -> Data?
     {
         var req = fileRequest( .get, host, path )
-        s3_exec_request( &req, host )
+        s3_sign_request( &req, host )
         return try MIOCoreURLDataRequest_sync( req )
         //return try exec_request( &req, host )
     }
     
-    public func putFile ( _ host: String, _ path: String, _ content: Data ) throws
+    public func putFile ( _ host: String, _ path: String, _ content: Data, mimeType:String? ) throws
     {
-        var req = fileRequest( .put, host, path )
+        var req = fileRequest( .put, host, path, mimeType: mimeType ?? "application/octet-stream" )
+        req.setValue( "public-read", forHTTPHeaderField: "x-amz-acl" )
         req.httpBody = content
-        try exec_request( &req, host )
+        s3_sign_request( &req, host, content, isUnsigned: false )
+        
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 240
+
+        let session = URLSession.init(configuration: config )
+        
+        let (data, response, error) = session.synchronousDataTask( with: req )
+                         
+        if error != nil {
+            print("ERROR MIOCoreURLDataRequest_sync: \(error!.localizedDescription)")
+            print("ERROR Request: \(req)")
+            print("ERROR Response: \(String(describing: response))")
+            print("ERROR Body: \(String(describing: data))")
+            throw error!
+        }
+        
+        // TODO: Check response code
+        _ = try dispatch_response( data )
     }
     
     public func deleteFile ( _ host: String, _ path: String ) throws
     {
         var req = fileRequest( .delete, host, path )
-        try exec_request( &req, host )
+        s3_sign_request( &req, host )
+        _ = try dispatch_response( try MIOCoreURLDataRequest_sync( req ) )
     }
 }
 
@@ -88,24 +108,29 @@ extension S3
         return url
     }
     
-    func s3_exec_request( _ req: inout URLRequest, _ host: String ) {
-        let signature = S3SignatureV4( region )
+    func s3_sign_request( _ req: inout URLRequest, _ host: String, _ content:Data? = nil, isUnsigned:Bool = false, acl:S3SignatureV4ACLType = .publicRead ) {
+        let signature = S3SignatureV4( region, isUnsigned: isUnsigned )
         req.setValue( host, forHTTPHeaderField: "Host" )
-        signature.signRequest( &req, credentials )
+        if content != nil {
+            req.setValue( "\(content!.count)", forHTTPHeaderField: "Content-Length" )
+        }
+        signature.signRequest( &req, credentials, body: content, acl: acl )
     }
     
-    @discardableResult
-    func exec_request ( _ req: inout URLRequest, _ host: String ) throws -> Data?
-    {
-        s3_exec_request( &req, host )
-        return try dispatch_response( try MIOCoreURLDataRequest_sync( req ) )
-    }
+//    @discardableResult
+//    func exec_request ( _ req: inout URLRequest, _ host: String ) throws -> Data?
+//    {
+//        s3_exec_request( &req, host )
+//        return try dispatch_response( try MIOCoreURLDataRequest_sync( req ) )
+//    }
         
     func dispatch_response ( _ response: Data? ) throws -> Data?
     {
         if response == nil || response!.isEmpty { return nil }
 
-        let xmlDict = try XMLSerialization.xmlObject( with: response!, options: [] ) as! [String:Any]
+        guard let xmlDict = try XMLSerialization.xmlObject( with: response!, options: [] ) as? [String:Any] else {
+            throw AWSError.error( "Unkown CODE", "Missing Message")
+        }
         print( "S3: Response \(xmlDict)" )
         if xmlDict[ "__XML_TAG_NAME__" ] as? String == "Error" {
             throw AWSError.error( xmlDict[ "Code"    ] as? String ?? "Unkown CODE"
@@ -131,7 +156,7 @@ extension S3 : URLSessionTaskDelegate
     //  searchPath = .itemReplacementDirectory y localSubfolder = nil  -> No va en VisionOS
     public func getFile ( _ host: String, _ remotePath: String, _ saveFileURL: URL,  progress: S3ProgressCallback?, completion: @escaping S3DownloadCompletionCallback ) {
         var req = fileRequest( .get, host, remotePath )
-        s3_exec_request( &req, host )
+        s3_sign_request( &req, host )
         
         S3.progress_blocks[ req.url!.absoluteString ] = progress
         
@@ -192,7 +217,7 @@ extension S3 : URLSessionTaskDelegate
     {
         var req = fileRequest( .put, host, path )
         req.httpBody = content
-        s3_exec_request( &req, host )
+        s3_sign_request( &req, host )
      
         S3.progress_blocks[ req.url!.absoluteString ] = progress
         
