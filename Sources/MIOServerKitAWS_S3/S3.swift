@@ -66,6 +66,26 @@ public final class S3 : NSObject
         //return try exec_request( &req, host )
     }
     
+    /*
+    public func putFile ( _ host: String, _ path: String, _ content: Data, mimeType:String? ) async throws
+    {
+        var req = fileRequest( .put, host, path, mimeType: mimeType ?? "application/octet-stream" )
+        req.setValue( "public-read", forHTTPHeaderField: "x-amz-acl" )
+        req.httpBody = content
+        s3_sign_request( &req, host, content, isUnsigned: false )
+        
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 240
+
+        let session = URLSession.init(configuration: config )
+        
+        let (data, response) = try await session.data( for: req )
+         
+        // TODO: Check response code
+        _ = try dispatch_response( data )
+    }
+     */
+    
     public func putFile ( _ host: String, _ path: String, _ content: Data, mimeType:String? ) throws
     {
         var req = fileRequest( .put, host, path, mimeType: mimeType ?? "application/octet-stream" )
