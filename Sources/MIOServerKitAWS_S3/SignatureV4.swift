@@ -12,9 +12,11 @@ import FoundationNetworking
 #endif
 
 
-public enum AWS_SIGNATURE_TYPE: String
+public enum AWS_SIGNATURE_PAYLOAD_TYPE: String
 {
     case UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD"
+    case SINGLE_CHUNK = "AWS4-HMAC-SHA256"
+    case MULTIPLE_CHUNK = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"
 }
 
 let AMZ_CONTENT_SHA256_HEADER = "x-amz-content-sha256"
@@ -62,7 +64,7 @@ public class SignatureV4
     {
         return Set( [ "cache-control"
                     //, "content-type"
-                    , "content-length"
+//                    , "content-length"
                     , "expect"
                     , "max-forwards"
                     , "pragma"
@@ -86,7 +88,8 @@ public class SignatureV4
     }
 
 
-    public func signRequest ( _ request: inout URLRequest, _ credentials: Credentials, body:Data? ) {
+    @discardableResult
+    public func signRequest ( _ request: inout URLRequest, _ credentials: Credentials, payloadType: AWS_SIGNATURE_PAYLOAD_TYPE = .SINGLE_CHUNK ) -> String {
         let ldt = gmdate() // 20200905T085054Z
         let sdt = String( ldt[ ldt.startIndex ... ldt.index( ldt.startIndex, offsetBy: 7 ) ] ) // 20200905
 
@@ -98,7 +101,7 @@ public class SignatureV4
             request.setValue( token, forHTTPHeaderField: "x-amz-security-token" )
         }
         
-        let payload    = getPayload( request, body )
+        let payload    = getPayload( request )
         request.setValue( payload, forHTTPHeaderField: AMZ_CONTENT_SHA256_HEADER )
                 
         let cs         = createScope( sdt, region, service )
@@ -117,6 +120,8 @@ public class SignatureV4
                  + "Signature=\(signature)"
         
         request.setValue( auth, forHTTPHeaderField: "Authorization" )
+        
+        return signature
     }
 
     /**
@@ -260,10 +265,10 @@ public class SignatureV4
 //    }
 
 
-    public func getPayload ( _ request: URLRequest, _ body:Data? ) -> String
+    public func getPayload ( _ request: URLRequest ) -> String
     {
         if isUnsigned && request.url!.scheme!.lowercased() == "https" {
-            return AWS_SIGNATURE_TYPE.UNSIGNED_PAYLOAD.rawValue
+            return AWS_SIGNATURE_PAYLOAD_TYPE.UNSIGNED_PAYLOAD.rawValue
         }
         
         // Calculate the request signature payload

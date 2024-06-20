@@ -85,14 +85,18 @@ public final class S3 : NSObject
         _ = try dispatch_response( data )
     }
      */
-    
+          
     public func putFile ( _ host: String, _ path: String, _ content: Data, mimeType:String? ) throws
     {
         var req = fileRequest( .put, host, path, mimeType: mimeType ?? "application/octet-stream" )
-        req.setValue( "public-read", forHTTPHeaderField: "x-amz-acl" )
         req.httpBody = content
-        s3_sign_request( &req, host, content, isUnsigned: false )
-        
+        s3_sign_request( &req, host )
+                
+        try executePutFile( req )
+    }
+    
+    func executePutFile( _ req: URLRequest ) throws
+    {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 240
 
@@ -112,6 +116,99 @@ public final class S3 : NSObject
         _ = try dispatch_response( data )
     }
     
+    public func putFile ( _ host: String, _ path: String, _ content: Data, mimeType:String?, sizeLimit:Int ) throws
+    {
+        if content.count < sizeLimit {
+            try putFile( host, path, content, mimeType: mimeType )
+            return
+        }
+        
+        var count = content.count / sizeLimit
+        if ( content.count % sizeLimit ) > 0 { count += 1 }
+        var offset = 0
+        
+        struct chunk_body
+        {
+            var data:Data
+            var signature:String = String( repeating: "0", count: 64 )
+            
+            mutating func setSignature( _ signature:String ) {
+                self.signature = signature
+            }
+            
+            func meta() -> String {
+                return String(data.count, radix: 16, uppercase: false) + ";chunk-signature=" + signature
+            }
+            
+            func metaLen() -> Int {
+                return meta().count + 4 // plus the 2 \r\n of the chunk body
+            }
+                        
+            func body() -> Data {
+                // string(IntHexBase(chunk-size)) + ";chunk-signature=" + signature + \r\n + chunk-data + \r\n
+                return meta().data(using: .utf8)! + "\r\n".data(using: .utf8)! + data + "\r\n".data(using: .utf8)!
+            }
+        }
+        
+        var bodies:[chunk_body] = []
+        var total_len:Int = content.count
+        
+        for _ in 0..<count {
+            let sub_data = (offset + sizeLimit) < content.count ? content[ offset..<( offset + sizeLimit ) ] : content[ offset..<content.count ]
+            offset += sizeLimit
+            
+            let body = chunk_body( data: sub_data )
+            total_len += body.metaLen()
+            bodies.append( body )
+        }
+
+        // Final chunk with Zero data
+        let body = chunk_body( data: Data() )
+        total_len += body.metaLen()
+        bodies.append( body )
+        
+        let empty_hash = sha256_hash( Data() )
+
+        var r = fileRequest( .put, host, path, mimeType: mimeType ?? "application/octet-stream" )
+        r.setValue( "aws-chunked", forHTTPHeaderField: "Content-Encoding" )
+        r.setValue( "\(total_len)", forHTTPHeaderField: "Content-Length" )
+        r.setValue( "\(content.count)", forHTTPHeaderField: "x-amz-decoded-content-length" )
+        r.setValue( "STREAMING-AWS4-HMAC-SHA256-PAYLOAD", forHTTPHeaderField: "x-amz-content-sha256" )
+
+        var signature = s3_sign_request( &r, host, storage: .reducedRedundancy, payloadType: .MULTIPLE_CHUNK )
+        let ldt = r.value(forHTTPHeaderField: "x-amz-date")!
+        let sdt = String( ldt[ ldt.startIndex ... ldt.index( ldt.startIndex, offsetBy: 7 ) ] ) // 20200905
+        
+        for var b in bodies {
+            
+            var req = fileRequest( .put, host, path, mimeType: mimeType ?? "application/octet-stream" )
+            b.setSignature( signature )
+            req.httpBody = b.body()
+                        
+            req.setValue( "aws-chunked", forHTTPHeaderField: "Content-Encoding" )
+            req.setValue( "\(req.httpBody!.count)", forHTTPHeaderField: "Content-Length" )
+            req.setValue( "\(content.count)", forHTTPHeaderField: "x-amz-decoded-content-length" )
+            req.setValue( "STREAMING-AWS4-HMAC-SHA256-PAYLOAD", forHTTPHeaderField: "x-amz-content-sha256" )
+//            req.setValue( ldt, forHTTPHeaderField: "x-amz-date")
+            
+            s3_sign_request( &req, host, storage: .reducedRedundancy, payloadType: .MULTIPLE_CHUNK )
+            
+            let toSign = """
+            AWS4-HMAC-SHA256-PAYLOAD
+            \(ldt)
+            \(createScope( sdt, region, "s3" ) )
+            \(signature)
+            \(empty_hash)
+            \(sha256_hash( b.data ) )
+            """
+        
+            let signingKey = getSigningKey( sdt, region, "s3", credentials.getSecretKey() )
+            signature = sha256_hmac( toSign, key: signingKey ).map{ String(format: "%02x", $0) }.joined()
+            
+            try executePutFile( req )
+        }
+    }
+    
     public func deleteFile ( _ host: String, _ path: String ) throws
     {
         var req = fileRequest( .delete, host, path )
@@ -128,13 +225,10 @@ extension S3
         return url
     }
     
-    func s3_sign_request( _ req: inout URLRequest, _ host: String, _ content:Data? = nil, isUnsigned:Bool = false, acl:S3SignatureV4ACLType = .publicRead ) {
-        let signature = S3SignatureV4( region, isUnsigned: isUnsigned )
+    func s3_sign_request( _ req: inout URLRequest, _ host: String, acl:S3SignatureV4ACLType = .default, storage: S3SignatureV4StorageClassType = .default, payloadType: AWS_SIGNATURE_PAYLOAD_TYPE = .SINGLE_CHUNK ) -> String {
+        let signature = S3SignatureV4( region, payloadType: payloadType )
         req.setValue( host, forHTTPHeaderField: "Host" )
-        if content != nil {
-            req.setValue( "\(content!.count)", forHTTPHeaderField: "Content-Length" )
-        }
-        signature.signRequest( &req, credentials, body: content, acl: acl )
+        return signature.signRequest( &req, credentials, acl: acl, storage: storage )
     }
     
 //    @discardableResult
