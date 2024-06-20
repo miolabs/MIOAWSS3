@@ -168,14 +168,14 @@ public final class S3 : NSObject
         bodies.append( body )
         
         let empty_hash = sha256_hash( Data() )
-
+/*
         var r = fileRequest( .put, host, path, mimeType: mimeType ?? "application/octet-stream" )
         r.setValue( "aws-chunked", forHTTPHeaderField: "Content-Encoding" )
         r.setValue( "\(total_len)", forHTTPHeaderField: "Content-Length" )
         r.setValue( "\(content.count)", forHTTPHeaderField: "x-amz-decoded-content-length" )
         r.setValue( "STREAMING-AWS4-HMAC-SHA256-PAYLOAD", forHTTPHeaderField: "x-amz-content-sha256" )
 
-        var signature = s3_sign_request( &r, host, storage: .reducedRedundancy, payloadType: .MULTIPLE_CHUNK )
+        var signature = s3_sign_request( &r, host, storage: .reducedRedundancy, payloadType: .multipleChunk )
         let ldt = r.value(forHTTPHeaderField: "x-amz-date")!
         let sdt = String( ldt[ ldt.startIndex ... ldt.index( ldt.startIndex, offsetBy: 7 ) ] ) // 20200905
         
@@ -191,7 +191,7 @@ public final class S3 : NSObject
             req.setValue( "STREAMING-AWS4-HMAC-SHA256-PAYLOAD", forHTTPHeaderField: "x-amz-content-sha256" )
 //            req.setValue( ldt, forHTTPHeaderField: "x-amz-date")
             
-            s3_sign_request( &req, host, storage: .reducedRedundancy, payloadType: .MULTIPLE_CHUNK )
+            s3_sign_request( &req, host, storage: .reducedRedundancy, payloadType: .multipleChunk )
             
             let toSign = """
             AWS4-HMAC-SHA256-PAYLOAD
@@ -206,7 +206,7 @@ public final class S3 : NSObject
             signature = sha256_hmac( toSign, key: signingKey ).map{ String(format: "%02x", $0) }.joined()
             
             try executePutFile( req )
-        }
+        } */
     }
     
     public func deleteFile ( _ host: String, _ path: String ) throws
@@ -225,10 +225,10 @@ extension S3
         return url
     }
     
-    func s3_sign_request( _ req: inout URLRequest, _ host: String, acl:S3SignatureV4ACLType = .default, storage: S3SignatureV4StorageClassType = .default, payloadType: AWS_SIGNATURE_PAYLOAD_TYPE = .SINGLE_CHUNK ) -> String {
-        let signature = S3SignatureV4( region, payloadType: payloadType )
+    func s3_sign_request( _ req: inout URLRequest, _ host: String, acl:S3SignatureV4ACLType = .default, storage: S3SignatureV4StorageClassType = .default, payloadType: AWS_SIGNATURE_PAYLOAD_TYPE = .singleChunk ) {
+        let signature = S3SignatureV4( region )
         req.setValue( host, forHTTPHeaderField: "Host" )
-        return signature.signRequest( &req, credentials, acl: acl, storage: storage )
+//        signature.signRequest( &req, credentials, acl: acl, storage: storage )
     }
     
 //    @discardableResult

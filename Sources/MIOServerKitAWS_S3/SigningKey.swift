@@ -17,7 +17,6 @@ public func createScope ( _ shortDate: String, _ region: String, _ service: Stri
     return "\(shortDate)/\(region)/\(service)/aws4_request"
 }
 
-
 public func getSigningKey ( _ shortDate: String, _ region: String, _ service: String, _ secretKey: String ) -> SymmetricKey
 {
     let k = shortDate + "_" + region + "_" + service + "_"  + secretKey

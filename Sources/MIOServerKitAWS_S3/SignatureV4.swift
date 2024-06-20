@@ -14,18 +14,40 @@ import FoundationNetworking
 
 public enum AWS_SIGNATURE_PAYLOAD_TYPE: String
 {
-    case UNSIGNED_PAYLOAD = "UNSIGNED-PAYLOAD"
-    case SINGLE_CHUNK = "AWS4-HMAC-SHA256"
-    case MULTIPLE_CHUNK = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"
+    case unsigned = "UNSIGNED-PAYLOAD"
+    case singleChunk = "AWS4-HMAC-SHA256"
+    case multipleChunk = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"
+}
+
+enum AWS_SIGNATURE_STRING_TYPE: String
+{
+    case sha256 = "AWS4-HMAC-SHA256"
+    case sha256Payload = "AWS4-HMAC-SHA256-PAYLOAD"
 }
 
 let AMZ_CONTENT_SHA256_HEADER = "x-amz-content-sha256"
 
 
-public struct SigContext
+public class SigContext
 {
+    public let credentials : Credentials
+    
+    public let date   : String
+    public let scope  : String
     public let creq   : String
     public let headers: String
+    
+    public let payloadType : AWS_SIGNATURE_PAYLOAD_TYPE
+        
+    init(credentials: Credentials, date:String, scope: String, creq: String, headers: String, payloadType: AWS_SIGNATURE_PAYLOAD_TYPE = .singleChunk ) {
+        self.credentials = credentials
+        self.scope = scope
+        self.date = date
+        self.creq = creq
+        self.headers = headers
+        self.payloadType = payloadType
+    }
+    
 }
 
 /**
@@ -86,10 +108,68 @@ public class SignatureV4
                     , "aws-sdk-retry"
                     ] )
     }
+    
+    enum SignatureRequestHttpMethod : String
+    {
+        case get    = "GET"
+        case post   = "POST"
+        case put    = "PUT"
+        case patch  = "PATCH"
+        case delete = "DELETE"
+    }
+    
+    public struct SignatureRequest
+    {
+        let httpMethod:SignatureRequestHttpMethod
+        let host:String
+        let path:String
+        let query:String
+        let headers: [String:String]
+        let body:Data
+        
+        init( _ httpMethod: SignatureRequestHttpMethod = .get, _ host:String, _ path: String, query:String = "", headers: [String : String] = [:], body: Data = Data() )
+        {
+            self.httpMethod = httpMethod
+            self.host = host
+            self.path = path
+            self.query = query
+            self.headers = headers
+            self.body = body
+        }
+    }
 
+    public func createContext( from request: SignatureRequest, dateString: String, credentials: Credentials, payloadType:AWS_SIGNATURE_PAYLOAD_TYPE = .singleChunk ) -> SigContext
+    {
+        let payload = payloadType == .singleChunk ? sha256_hash( request.body ) : payloadType.rawValue
+        let sdt     = String( dateString[ dateString.startIndex ... dateString.index( dateString.startIndex, offsetBy: 7 ) ] ) // 20200905
+        let cs      = createScope( sdt, region, service )
+        
+        let (cannon,sign_headers) = createCanonicalString(from: request, payload: payload )
+        
+        return SigContext( credentials: credentials, date: dateString, scope: cs, creq: cannon, headers: sign_headers, payloadType: payloadType )
+    }
+    
+    func generateSignature( context:SigContext ) -> String
+    {
+        let ldt        = context.date
+        let sdt        = String( ldt[ ldt.startIndex ... ldt.index( ldt.startIndex, offsetBy: 7 ) ] ) // 20200905
+        let toSign     = createStringToSign( context: context )
+        let signingKey = getSigningKey( sdt, region, service, context.credentials.getSecretKey() )
+        
+        return sha256_hmac( toSign, key: signingKey ).map{ String(format: "%02x", $0) }.joined()
+    }
+        
+    public func generateAuthorizationHeader( signature:String, context:SigContext) -> String
+    {
+        let auth = "AWS4-HMAC-SHA256 "
+                 + "Credential=\(context.credentials.getAccessKeyId())/\(context.scope),"
+                 + "SignedHeaders=\(context.headers),"
+                 + "Signature=\(signature)"
 
-    @discardableResult
-    public func signRequest ( _ request: inout URLRequest, _ credentials: Credentials, payloadType: AWS_SIGNATURE_PAYLOAD_TYPE = .SINGLE_CHUNK ) -> String {
+        return auth
+    }
+        
+    public func signRequest ( _ request: inout URLRequest, _ credentials: Credentials, payloadType: AWS_SIGNATURE_PAYLOAD_TYPE = .singleChunk ) {
         let ldt = gmdate() // 20200905T085054Z
         let sdt = String( ldt[ ldt.startIndex ... ldt.index( ldt.startIndex, offsetBy: 7 ) ] ) // 20200905
 
@@ -105,23 +185,21 @@ public class SignatureV4
         request.setValue( payload, forHTTPHeaderField: AMZ_CONTENT_SHA256_HEADER )
                 
         let cs         = createScope( sdt, region, service )
-        let context    = createContext( request, payload )
-        let toSign     = createStringToSign( ldt, cs, context.creq )
-        let signingKey = getSigningKey( sdt, region, service, credentials.getSecretKey() )
-        let signature  = sha256_hmac( toSign, key: signingKey ).map{ String(format: "%02x", $0) }.joined()
+//        let context    = createContext( request, payload )
+//        let toSign     = createStringToSign( ldt, cs, context.creq )
+//        let signingKey = getSigningKey( sdt, region, service, credentials.getSecretKey() )
+//        let signature  = sha256_hmac( toSign, key: signingKey ).map{ String(format: "%02x", $0) }.joined()
 
 //        if payload == AWS_SIGNATURE_TYPE.UNSIGNED_PAYLOAD.rawValue {
 //            request.setValue( payload, forHTTPHeaderField: AMZ_CONTENT_SHA256_HEADER )
 //        }
 
-        let auth = "AWS4-HMAC-SHA256 "
-                 + "Credential=\(credentials.getAccessKeyId())/\(cs), "
-                 + "SignedHeaders=\(context.headers), "
-                 + "Signature=\(signature)"
-        
-        request.setValue( auth, forHTTPHeaderField: "Authorization" )
-        
-        return signature
+//        let auth = "AWS4-HMAC-SHA256 "
+//                 + "Credential=\(credentials.getAccessKeyId())/\(cs), "
+//                 + "SignedHeaders=\(context.headers), "
+//                 + "Signature=\(signature)"
+//        
+//        request.setValue( auth, forHTTPHeaderField: "Authorization" )
     }
 
     /**
@@ -129,28 +207,27 @@ public class SignatureV4
      * @param string payload Hash of the request payload
      * @return array Returns an array of context information
      */
-    private func createContext ( _ request: URLRequest, _ payload: String ) -> SigContext
+    private func createCanonicalString ( from request:SignatureRequest, payload:String ) -> (String,String)
     {
         let blacklist           = SignatureV4.getHeaderBlacklist()
-        let allowed_headers     = ( request.allHTTPHeaderFields ?? [:] )
+        let allowed_headers     = ( request.headers )
                                     .filter{ (h,v) in !blacklist.contains( h.lowercased() ) }
         let sortedKeys          = Array(allowed_headers.keys).sorted(by: <)
         let canonHeaders        = sortedKeys.map{ h in "\(h.lowercased()):\(allowed_headers[ h ]!)" }.joined( separator: "\n" )
         let signedHeadersString = sortedKeys.map{ $0.lowercased() }.joined( separator: ";" )
         
         var canon = ""
-        canon += request.httpMethod! + "\n"
-        canon += createCanonicalizedPath( request.url?.path ?? "" ) + "\n"
+        canon += request.httpMethod.rawValue + "\n"
+        canon += createCanonicalizedPath( request.path ) + "\n"
 //      canon += + getCanonicalizedQuery( request.url.query ) + "\n"
-        canon += ( request.url?.query ?? "" ) + "\n"
+        canon += request.query + "\n"
         canon += canonHeaders + "\n\n"
         canon += signedHeadersString + "\n"
         canon += payload
        
-        return SigContext( creq: canon, headers: signedHeadersString )
+        return (canon,signedHeadersString)
     }
         
-
     func createCanonicalizedPath ( _ path: String ) -> String
     {
         return (path.count > 0 && path.first! == "/") ? path : "/" + path
@@ -194,11 +271,11 @@ public class SignatureV4
 
 
     
-    func createStringToSign ( _ longDate: String, _ credentialScope: String, _ creq: String ) -> String
+    func createStringToSign ( context: SigContext ) -> String
     {
-        let hash = sha256_hash( creq.data(using: .utf8)! )
+        let hash = sha256_hash( context.creq.data(using: .utf8)! )
 
-        return "AWS4-HMAC-SHA256\n\(longDate)\n\(credentialScope)\n\(hash)"
+        return "AWS4-HMAC-SHA256\n\(context.date)\n\(context.scope)\n\(hash)"
     }
 
     
@@ -268,7 +345,7 @@ public class SignatureV4
     public func getPayload ( _ request: URLRequest ) -> String
     {
         if isUnsigned && request.url!.scheme!.lowercased() == "https" {
-            return AWS_SIGNATURE_PAYLOAD_TYPE.UNSIGNED_PAYLOAD.rawValue
+            return AWS_SIGNATURE_PAYLOAD_TYPE.unsigned.rawValue
         }
         
         // Calculate the request signature payload
