@@ -9,8 +9,8 @@ import Foundation
 import Crypto
 
 /** @var array Cache of previously signed values */
-var g_signing_key_cache: [String:SymmetricKey] = [:]
-let g_signing_key_queue = DispatchQueue(label: "com.miolabs.aws_s3.signing_key")
+//var g_signing_key_cache: [String:SymmetricKey] = [:]
+//let g_signing_key_queue = DispatchQueue(label: "com.miolabs.aws_s3.signing_key")
 
 public func createScope ( _ shortDate: String, _ region: String, _ service: String ) -> String
 {
@@ -19,17 +19,23 @@ public func createScope ( _ shortDate: String, _ region: String, _ service: Stri
 
 public func getSigningKey ( _ shortDate: String, _ region: String, _ service: String, _ secretKey: String ) -> SymmetricKey
 {
-    let k = shortDate + "_" + region + "_" + service + "_"  + secretKey
+//    let k = shortDate + "_" + region + "_" + service + "_"  + secretKey
 
-    g_signing_key_queue.sync {
-        if g_signing_key_cache[ k ] == nil {
-            let dateKey    = sha256_hmac( shortDate, "AWS4\(secretKey)".data(using: .utf8 )! )
-              , regionKey  = sha256_hmac( region, dateKey )
-              , serviceKey = sha256_hmac( service, regionKey )
+//    g_signing_key_queue.sync {
+//        if g_signing_key_cache[ k ] == nil {
+//            let dateKey    = sha256_hmac( shortDate, "AWS4\(secretKey)".data(using: .utf8 )! )
+//              , regionKey  = sha256_hmac( region, dateKey )
+//              , serviceKey = sha256_hmac( service, regionKey )
            
-            g_signing_key_cache[ k ] = SymmetricKey( data: sha256_hmac( "aws4_request", serviceKey ) )
-        }
-    }
+//            g_signing_key_cache[ k ] = SymmetricKey( data: sha256_hmac( "aws4_request", serviceKey ) )
+//        }
+//    }
     
-    return g_signing_key_cache[ k ]!
+//    return g_signing_key_cache[ k ]!
+
+    let dateKey    = sha256_hmac( shortDate, "AWS4\(secretKey)".data(using: .utf8 )! )
+    let regionKey  = sha256_hmac( region, dateKey )
+    let serviceKey = sha256_hmac( service, regionKey )
+
+    return SymmetricKey( data: sha256_hmac( "aws4_request", serviceKey ) )
 }

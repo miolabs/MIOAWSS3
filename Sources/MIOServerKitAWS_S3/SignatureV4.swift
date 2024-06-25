@@ -118,24 +118,73 @@ public class SignatureV4
         case delete = "DELETE"
     }
     
+    enum AWS_REQUEST_OPTION_CONTENT_ENCONDING : String
+    {
+        case sha256 = "sha256"
+        case chunked = "aws-chunked"
+    }
+    
+    enum AWS_REQUEST_OPTION
+    {
+        case date(String)
+        
+        case storageClassReducedRedundancy
+        
+        case decodedContentLength(Int)
+        case contentLength(Int)
+        
+        case contentSHA256(AWS_SIGNATURE_PAYLOAD_TYPE)
+        case contentEncoding(AWS_REQUEST_OPTION_CONTENT_ENCONDING)
+        
+        
+        func header( ) -> String {
+            switch self {
+            case .storageClassReducedRedundancy: return "x-amz-storage-class"
+            case .date                         : return "x-amz-date"
+            case .decodedContentLength         : return "x-amz-decoded-content-length"
+            case .contentSHA256                : return "x-amz-content-sha256"
+            case .contentEncoding              : return "Content-Encoding"
+            case .contentLength                : return "Content-Length"
+            }
+        }
+        
+        func value( ) -> String? {
+            switch self {
+            case     .storageClassReducedRedundancy : return "REDUCED_REDUNDANCY"
+            case let .date( dateString )            : return dateString
+            case let .decodedContentLength( length ): return "\(length)"
+            case let .contentSHA256( payload )      : return payload.rawValue
+            case let .contentEncoding( encoding )   : return encoding.rawValue
+            case let .contentLength( length )       : return "\(length)"
+            }
+        }
+    }
+    
     public struct SignatureRequest
     {
         let httpMethod:SignatureRequestHttpMethod
         let host:String
         let path:String
         let query:String
-        let headers: [String:String]
+        let options:[AWS_REQUEST_OPTION]
+        var headers: [String:String] = [:]
         let body:Data
         
-        init( _ httpMethod: SignatureRequestHttpMethod = .get, _ host:String, _ path: String, query:String = "", headers: [String : String] = [:], body: Data = Data() )
+        init( _ httpMethod: SignatureRequestHttpMethod = .get, _ host:String, _ path: String, query:String = "", options: [AWS_REQUEST_OPTION] = [], body: Data = Data() )
         {
             self.httpMethod = httpMethod
             self.host = host
             self.path = path
             self.query = query
-            self.headers = headers
             self.body = body
-        }
+            self.options = options
+                                    
+            headers[ "Host" ] = host
+            
+            for op in options {
+                self.headers[ op.header() ] = op.value()
+            }
+        }        
     }
 
     public func createContext( from request: SignatureRequest, dateString: String, credentials: Credentials, payloadType:AWS_SIGNATURE_PAYLOAD_TYPE = .singleChunk ) -> SigContext
@@ -228,18 +277,14 @@ public class SignatureV4
         return (canon,signedHeadersString)
     }
         
-    func createCanonicalizedPath ( _ path: String ) -> String
-    {
+    func createCanonicalizedPath ( _ path: String ) -> String {
         return (path.count > 0 && path.first! == "/") ? path : "/" + path
     }
-
 
     // Returns the arguments sorted alphabetically
     private func getCanonicalizedQuery ( _ query: [ String: Any ] ) -> String
     {
-        if query.isEmpty {
-            return ""
-        }
+        if query.isEmpty { return "" }
         
         let sorted_keys = query.keys.sorted()
           , skip_args = Set( ["x-amz-signature"] )
