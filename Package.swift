@@ -8,7 +8,7 @@ import PackageDescription
 let package = Package(
     name: "MIOServerKitAWS_S3",
     platforms: [
-        .iOS( .v12),
+        .iOS( .v13),
         .macOS(.v10_15),
     ],
     products: [
