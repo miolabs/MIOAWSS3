@@ -90,7 +90,7 @@ public final class S3Wrapper
     
     // MARK: - Upload
     
-    public func putObject( data:Data, path:String, bucket:String ) async throws
+    public func putObject( data:Data, path:String, bucket:String, acl: S3ClientTypes.ObjectCannedACL? = nil ) async throws
     {
         let safe_path = path.prefix(1) == "/" ? String( path.dropFirst() ) : path
      
@@ -103,15 +103,22 @@ public final class S3Wrapper
         let dataStream = ByteStream.data( data )
         
         let input = PutObjectInput( body: dataStream, bucket: bucket, key: safe_path )
-        let response = try await s3_client.putObject( input: input )
+        _ = try await s3_client.putObject( input: input )
+        
+        if acl != nil {
+            let acl_input = PutObjectAclInput( acl:acl!, bucket: bucket, key: safe_path )
+            let response = try await s3_client.putObjectAcl( input: acl_input )
+            print( "ACL Response: \(response)")
+        }
+        
     }
     
-    fileprivate func _put_object_sync( data:Data, path:String, bucket:String ) throws
+    fileprivate func _put_object_sync( data:Data, path:String, bucket:String, acl: S3ClientTypes.ObjectCannedACL? = nil ) throws
     {
         _Concurrency.Task.detached 
         {
             do {
-                try await self.putObject( data: data, path: path, bucket:bucket )
+                try await self.putObject( data: data, path: path, bucket:bucket, acl: acl )
             }
             catch {
                 print( "S3 wrapper error: \(error)" )
@@ -129,8 +136,8 @@ public final class S3Wrapper
         }
     }
     
-    public func putObject( data:Data, path:String, bucket:String ) throws {
-        try _put_object_sync( data: data, path: path, bucket: bucket )
+    public func putObject( data:Data, path:String, bucket:String, acl: S3ClientTypes.ObjectCannedACL? = nil ) throws {
+        try _put_object_sync( data: data, path: path, bucket: bucket, acl: acl )
     }
     
     // MARK: - Deletion
@@ -146,7 +153,7 @@ public final class S3Wrapper
         let s3_client = S3Client( config: config )
         
         let input = DeleteObjectInput( bucket: bucket, key: safe_path )
-        let response = try await s3_client.deleteObject( input: input )        
+        _ = try await s3_client.deleteObject( input: input )        
     }
     
     fileprivate func _delete_object_sync( path:String, bucket:String ) throws
