@@ -60,7 +60,7 @@ public final class S3Wrapper
     
     fileprivate func _get_object_sync( path:String, bucket:String ) throws -> Data?
     {
-        _Concurrency.Task.detached
+        _Concurrency.Task//.detached
         {
             do {
                 let data = try await self.getObject( path: path, bucket: bucket )
@@ -115,7 +115,7 @@ public final class S3Wrapper
     
     fileprivate func _put_object_sync( data:Data, path:String, bucket:String, acl: S3ClientTypes.ObjectCannedACL? = nil ) throws
     {
-        _Concurrency.Task.detached 
+        _Concurrency.Task//.detached
         {
             do {
                 try await self.putObject( data: data, path: path, bucket:bucket, acl: acl )
@@ -158,7 +158,7 @@ public final class S3Wrapper
     
     fileprivate func _delete_object_sync( path:String, bucket:String ) throws
     {
-        _Concurrency.Task.detached
+        _Concurrency.Task//.detached
         {
             do {
                 try await self.deleteObject( path: path, bucket: bucket )
