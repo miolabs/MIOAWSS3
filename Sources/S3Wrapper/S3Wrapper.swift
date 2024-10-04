@@ -115,18 +115,17 @@ public final class S3Wrapper
     
     fileprivate func _put_object_sync( data:Data, path:String, bucket:String, acl: S3ClientTypes.ObjectCannedACL? = nil ) throws
     {
-        _Concurrency.Task.detached 
-        {
-            do {
-                try await self.putObject( data: data, path: path, bucket:bucket, acl: acl )
+        DispatchQueue.global().async {
+            Task{
+                do {
+                    try await self.putObject( data: data, path: path, bucket:bucket, acl: acl )
+                }
+                catch {
+                    print( "S3 wrapper error: \(error)" )
+                    self.response_error = "\(error)"
+                }
+                self.semaphore.signal()
             }
-            catch {
-                print( "S3 wrapper error: \(error)" )
-                self.response_error = "\(error)"
-            }
-            
-            self.semaphore.signal()
-
         }
         
         semaphore.wait()
