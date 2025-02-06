@@ -26,7 +26,7 @@ let package = Package(
         // Dependencies declare other packages that this package depends on.
         // .package(url: /* package url */, from: "1.0.0"),
         .package( url: "https://github.com/miolabs/MIOCore.git", branch: "master" ),
-        .package( url: "https://github.com/apple/swift-crypto.git", from: "1.0.0" ),
+        .package( url: "https://github.com/apple/swift-crypto.git", "3.8.0"..<"5.0.0" ),
         .package( url: "https://github.com/awslabs/aws-sdk-swift", from: "0.45.0" )
     ],
     targets: [
