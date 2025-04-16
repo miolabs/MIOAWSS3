@@ -13,6 +13,8 @@ import SmithyIdentityAPI
 import Smithy
 import ClientRuntime
 import SmithyIdentity
+import MIOCoreLogger
+
 
 public enum S3Error: Error
 {
@@ -60,19 +62,20 @@ public final class S3Wrapper
     
     fileprivate func _get_object_sync( path:String, bucket:String ) throws -> Data?
     {
-        _Concurrency.Task.detached
-        {
-            do {
-                let data = try await self.getObject( path: path, bucket: bucket )
-                self.response_data = data
+        DispatchQueue.global().async {
+            Task {
+                do {
+                    let data = try await self.getObject( path: path, bucket: bucket )
+                    self.response_data = data
+                }
+                catch {
+                    Log.error( "S3 wrapper error: \(error)" )
+                    self.response_error = "\(error)"
+                }
+                
+                self.semaphore.signal()
+                
             }
-            catch {
-                print( "S3 wrapper error: \(error)" )
-                self.response_error = "\(error)"
-            }
-            
-            self.semaphore.signal()
-
         }
         
         semaphore.wait()
@@ -108,7 +111,7 @@ public final class S3Wrapper
         if acl != nil {
             let acl_input = PutObjectAclInput( acl:acl!, bucket: bucket, key: safe_path )
             let response = try await s3_client.putObjectAcl( input: acl_input )
-            print( "ACL Response: \(response)")
+            Log.debug( "ACL Response: \(response)")
         }
         
     }
@@ -116,12 +119,12 @@ public final class S3Wrapper
     fileprivate func _put_object_sync( data:Data, path:String, bucket:String, acl: S3ClientTypes.ObjectCannedACL? = nil ) throws
     {
         DispatchQueue.global().async {
-            Task{
+            Task {
                 do {
                     try await self.putObject( data: data, path: path, bucket:bucket, acl: acl )
                 }
                 catch {
-                    print( "S3 wrapper error: \(error)" )
+                    Log.error( "S3 wrapper error: \(error)" )
                     self.response_error = "\(error)"
                 }
                 self.semaphore.signal()
@@ -157,14 +160,16 @@ public final class S3Wrapper
     
     fileprivate func _delete_object_sync( path:String, bucket:String ) throws
     {
-        _Concurrency.Task.detached
-        {
-            do {
-                try await self.deleteObject( path: path, bucket: bucket )
-            }
-            catch {
-                self.response_error = "\(error)"
-                print( "S3 wrapper error: \(error)" )
+        DispatchQueue.global().async {
+            Task {
+                do {
+                    try await self.deleteObject( path: path, bucket: bucket )
+                }
+                catch {
+                    self.response_error = "\(error)"
+                    Log.error( "S3 wrapper error: \(error)" )
+                }
+                self.semaphore.signal()
             }
         }
         
