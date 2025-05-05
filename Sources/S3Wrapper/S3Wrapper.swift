@@ -121,6 +121,7 @@ public final class S3Wrapper
         DispatchQueue.global().async {
             Task {
                 do {
+                    Log.trace( "Starting S3 upload: \(path), bucket: \(bucket), acl: \(acl ?? .publicRead)" )
                     try await self.putObject( data: data, path: path, bucket:bucket, acl: acl )
                 }
                 catch {
