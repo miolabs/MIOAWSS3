@@ -13,10 +13,10 @@ let package = Package(
     ],
     products: [
         // Products define the executables and libraries produced by a package, and make them visible to other packages.
-        .library(
-            name: "MIOServerKitAWS_S3",
-            targets: ["MIOServerKitAWS_S3"]
-        ),
+//        .library(
+//            name: "MIOServerKitAWS_S3",
+//            targets: ["MIOServerKitAWS_S3"]
+//        ),
         .library(
             name: "S3Wrapper",
             targets: ["S3Wrapper"]
@@ -40,16 +40,16 @@ let package = Package(
                 .product(name: "Crypto", package: "swift-crypto")
             ]
         ),
-        .target(
-            name: "MIOServerKitAWS_S3",
-            dependencies: [
-                .product(name: "Crypto", package: "swift-crypto"), 
-                "MIOCore"
-            ]
-        ),
-        .testTarget(
-            name: "MIOServerKitAWS_S3Tests",
-            dependencies: ["MIOServerKitAWS_S3"]
-        ),
+//        .target(
+//            name: "MIOServerKitAWS_S3",
+//            dependencies: [
+//                .product(name: "Crypto", package: "swift-crypto"), 
+//                "MIOCore"
+//            ]
+//        ),
+//        .testTarget(
+//            name: "MIOServerKitAWS_S3Tests",
+//            dependencies: ["MIOServerKitAWS_S3"]
+//        ),
     ]
 )
