@@ -27,7 +27,7 @@ let package = Package(
         // .package(url: /* package url */, from: "1.0.0"),
         .package( url: "https://github.com/miolabs/MIOCore.git", branch: "master" ),
         .package( url: "https://github.com/apple/swift-crypto.git", "3.8.0"..<"5.0.0" ),
-        .package( url: "https://github.com/awslabs/aws-sdk-swift", from: "0.45.0" )
+        .package( url: "https://github.com/awslabs/aws-sdk-swift", from: "1.6.18" )
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.

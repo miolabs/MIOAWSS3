@@ -101,6 +101,7 @@ public final class S3Wrapper
         let awsCredentialIdentityResolver = try StaticAWSCredentialIdentityResolver(credentials)
         let config = try await S3Client.S3ClientConfiguration(awsCredentialIdentityResolver: awsCredentialIdentityResolver, region: region)
         
+        
         let s3_client = S3Client( config: config )
         
         let dataStream = ByteStream.data( data )
