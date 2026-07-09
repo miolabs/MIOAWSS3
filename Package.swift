@@ -3,53 +3,41 @@
 
 import PackageDescription
 
-
-
 let package = Package(
-    name: "MIOServerKitAWS_S3",
+    name: "MIOAWSS3",
     platforms: [
-        .iOS( .v13),
-        .macOS(.v12),
+        .iOS( .v13 ),
+        .macOS( .v12 ),
     ],
     products: [
-        // Products define the executables and libraries produced by a package, and make them visible to other packages.
-//        .library(
-//            name: "MIOServerKitAWS_S3",
-//            targets: ["MIOServerKitAWS_S3"]
-//        ),
         .library(
-            name: "S3Wrapper",
-            targets: ["S3Wrapper"]
+            name: "MIOAWSS3",
+            targets: ["MIOAWSS3"]
+        ),
+        .library(
+            name: "MIOAWSCore",
+            targets: ["MIOAWSCore"]
         ),
     ],
     dependencies: [
-        // Dependencies declare other packages that this package depends on.
-        // .package(url: /* package url */, from: "1.0.0"),
-        //.package( url: "https://github.com/miolabs/MIOCore.git", branch: "master" ),
-        .package( url: "https://github.com/apple/swift-crypto.git", "3.8.0"..<"5.0.0" ),
-        .package( url: "https://github.com/awslabs/aws-sdk-swift", from: "1.6.18" )
+        .package( url: "https://github.com/apple/swift-crypto.git", "3.8.0"..<"5.0.0" )
     ],
     targets: [
-        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-        // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
-            name: "S3Wrapper",
+            name: "MIOAWSCore",
             dependencies: [
-                .product(name: "AWSS3", package: "aws-sdk-swift"),
-                .product(name: "AWSSTS", package: "aws-sdk-swift"),
                 .product(name: "Crypto", package: "swift-crypto")
             ]
         ),
-//        .target(
-//            name: "MIOServerKitAWS_S3",
-//            dependencies: [
-//                .product(name: "Crypto", package: "swift-crypto"), 
-//                "MIOCore"
-//            ]
-//        ),
-//        .testTarget(
-//            name: "MIOServerKitAWS_S3Tests",
-//            dependencies: ["MIOServerKitAWS_S3"]
-//        ),
+        .target(
+            name: "MIOAWSS3",
+            dependencies: [
+                "MIOAWSCore"
+            ]
+        ),
+        .testTarget(
+            name: "MIOAWSS3Tests",
+            dependencies: ["MIOAWSS3"]
+        ),
     ]
 )
